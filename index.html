@@ -296,7 +296,7 @@ table.it{width:100%;border-collapse:collapse;font-size:.8rem;}
 .cr-btn:hover{border-color:var(--gold);color:var(--navy);}
 .cr-btn.active{background:var(--gold);color:#fff;border-color:var(--gold);}
 
-/* ── LOGIN SCREEN ── */
+/* ── PASSWORD SCREEN ── */
 #login-screen{
   display:flex;position:fixed;inset:0;z-index:9999;
   background:linear-gradient(135deg,#4a4f54 0%,#2d3235 50%,#1a1d1f 100%);
@@ -313,43 +313,44 @@ table.it{width:100%;border-collapse:collapse;font-size:.8rem;}
 .login-logo{font-family:'Playfair Display',serif;font-size:1.9rem;font-weight:700;color:#4a4f54;margin-bottom:3px;}
 .login-tag{font-size:.72rem;color:#3aafb9;letter-spacing:2px;text-transform:uppercase;margin-bottom:28px;}
 .login-title{font-size:1rem;font-weight:700;color:#2d3235;margin-bottom:6px;}
-.login-sub{font-size:.82rem;color:#6b7280;margin-bottom:28px;line-height:1.5;}
+.login-sub{font-size:.82rem;color:#6b7280;margin-bottom:24px;line-height:1.5;}
+.login-input{
+  width:100%;padding:13px 16px;border-radius:10px;border:2px solid #e5e7eb;
+  font-family:'Outfit',sans-serif;font-size:1.1rem;font-weight:600;
+  text-align:center;letter-spacing:6px;color:#2d3235;
+  transition:border .2s;margin-bottom:12px;
+}
+.login-input:focus{outline:none;border-color:#3aafb9;}
 .login-btn{
   display:flex;align-items:center;justify-content:center;gap:12px;
-  width:100%;padding:13px 20px;border-radius:10px;border:2px solid #e5e7eb;
-  background:#fff;cursor:pointer;font-family:'Outfit',sans-serif;
-  font-size:.92rem;font-weight:600;color:#2d3235;transition:all .2s;
+  width:100%;padding:13px 20px;border-radius:10px;border:none;
+  background:#4a4f54;cursor:pointer;font-family:'Outfit',sans-serif;
+  font-size:.92rem;font-weight:600;color:#fff;transition:all .2s;
 }
-.login-btn:hover{border-color:#4a4f54;background:#f9fafb;box-shadow:0 4px 12px rgba(0,0,0,.08);}
-.login-btn img{width:22px;height:22px;}
+.login-btn:hover{background:#3aafb9;}
 .login-err{
-  margin-top:16px;padding:10px 14px;background:#fee2e2;
+  margin-top:14px;padding:10px 14px;background:#fee2e2;
   border-radius:8px;color:#dc2626;font-size:.8rem;font-weight:600;
   display:none;
 }
-.login-loading{
-  margin-top:16px;color:#6b7280;font-size:.82rem;display:none;
-}
-.login-footer{margin-top:28px;font-size:.7rem;color:#9ca3af;}
+.login-footer{margin-top:24px;font-size:.7rem;color:#9ca3af;}
 #app-wrapper{display:none;}
 </style>
 </head>
 <body>
 
-<!-- LOGIN SCREEN -->
+<!-- PASSWORD SCREEN -->
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">FACT</div>
     <div class="login-tag">Uniforms · Business Manager</div>
     <div class="login-title">Welcome Back 👋</div>
-    <div class="login-sub">Sign in with your authorized Google account to access the dashboard.</div>
-    <button class="login-btn" onclick="signInWithGoogle()">
-      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
-      Continue with Google
-    </button>
-    <div class="login-err" id="login-err">⛔ Access denied. Your account is not authorized.</div>
-    <div class="login-loading" id="login-loading">⏳ Signing you in…</div>
-    <div class="login-footer">🔒 Access restricted to authorized users only</div>
+    <div class="login-sub">Enter the access password to continue.</div>
+    <input class="login-input" type="password" id="pw-input" placeholder="••••••" maxlength="10"
+      onkeydown="if(event.key==='Enter')checkPassword()">
+    <button class="login-btn" onclick="checkPassword()">🔓 Enter</button>
+    <div class="login-err" id="login-err">⛔ Incorrect password. Please try again.</div>
+    <div class="login-footer">🔒 Access restricted to FACT Uniforms team</div>
   </div>
 </div>
 
@@ -1430,14 +1431,12 @@ const savedLogo=DB.getLogo();if(savedLogo)applyLogo(savedLogo);
 
 </div><!-- end app-wrapper -->
 
-<!-- FIREBASE: Auth + Firestore + Offline Persistence -->
+<!-- FIRESTORE (no auth — password protected app) -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut }
-    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import {
     getFirestore, enableIndexedDbPersistence,
-    collection, doc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy
+    collection, doc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -1449,125 +1448,121 @@ const savedLogo=DB.getLogo();if(savedLogo)applyLogo(savedLogo);
     appId: "1:148033088038:web:9dc18bf4ceccb0d4b314e7"
   };
 
-  // ✅ ALLOWED EMAILS
-  const ALLOWED = [
-    "sindhu.ambati2007@gmail.com",
-    "meghna.dr@gmail.com",
-    "mahaanandicreativedesigns@gmail.com"
-  ];
-
   const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const provider = new GoogleAuthProvider();
   const db = getFirestore(app);
 
-  // Enable offline persistence (works even without internet after first load)
-  enableIndexedDbPersistence(db).catch(err => {
-    if(err.code === 'failed-precondition') console.warn('Offline persistence unavailable: multiple tabs open');
-    else if(err.code === 'unimplemented') console.warn('Offline persistence not supported in this browser');
-  });
+  enableIndexedDbPersistence(db).catch(()=>{});
 
-  // ── FIRESTORE DB OVERRIDE ──
-  // Replace the localStorage DB with Firestore versions
-  // Called after login so user is authenticated
+  // ── PASSWORD CHECK ──
+  const PASS = '197976';
+  const SESSION_KEY = 'fu4_auth';
 
+  window.checkPassword = function(){
+    const val = document.getElementById('pw-input').value;
+    const err = document.getElementById('login-err');
+    if(val === PASS){
+      sessionStorage.setItem(SESSION_KEY,'1');
+      err.style.display='none';
+      showApp();
+    } else {
+      err.style.display='block';
+      document.getElementById('pw-input').value='';
+      document.getElementById('pw-input').focus();
+    }
+  };
+
+  window.signOutUser = function(){
+    sessionStorage.removeItem(SESSION_KEY);
+    document.getElementById('app-wrapper').style.display='none';
+    document.getElementById('login-screen').style.display='flex';
+    document.getElementById('pw-input').value='';
+    document.getElementById('login-err').style.display='none';
+  };
+
+  function showApp(){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app-wrapper').style.display='flex';
+
+    // Add sign out button to topbar
+    const actions = document.querySelector('.topbar-actions');
+    if(actions && !document.getElementById('user-info')){
+      const info = document.createElement('div');
+      info.id='user-info';
+      info.style.cssText='display:flex;align-items:center;gap:8px;';
+      info.innerHTML=`<span style="font-size:.78rem;color:var(--gray);font-weight:600;">FACT Team</span>
+        <button class="btn btn-outline btn-sm" onclick="signOutUser()">↩ Lock</button>`;
+      actions.appendChild(info);
+    }
+    initFirestoreDB();
+  }
+
+  // Auto-login if session exists
+  if(sessionStorage.getItem(SESSION_KEY)==='1'){
+    showApp();
+  }
+
+  // ── FIRESTORE DB ──
   async function initFirestoreDB(){
-
-    // Helper: load a whole collection as array
     async function loadCol(name){
-      const snap = await getDocs(collection(db, name));
+      const snap = await getDocs(collection(db,name));
       return snap.docs.map(d=>({id:d.id,...d.data()}));
     }
 
-    // ── DOCS ──
     window.FSdb = {
       async getDocs(type){
         const snap = await getDocs(collection(db,'docs'));
         let docs = snap.docs.map(d=>({id:d.id,...d.data()}));
-        if(type) docs = docs.filter(x=>x.type===type);
+        if(type) docs=docs.filter(x=>x.type===type);
         return docs.sort((a,b)=>new Date(b.date)-new Date(a.date));
       },
-      async addDoc(docObj){
-        await setDoc(doc(db,'docs',docObj.id), docObj);
-      },
-      async updDoc(id, up){
-        await updateDoc(doc(db,'docs',id), up);
-      },
-      async delDoc(id){
-        await deleteDoc(doc(db,'docs',id));
-      },
-
-      // ── CLIENTS ──
+      async addDoc(docObj){await setDoc(doc(db,'docs',docObj.id),docObj);},
+      async updDoc(id,up){await updateDoc(doc(db,'docs',id),up);},
+      async delDoc(id){await deleteDoc(doc(db,'docs',id));},
       async getClients(){return loadCol('clients');},
       async saveClient(c){await setDoc(doc(db,'clients',c.id),c);},
       async delClient(id){await deleteDoc(doc(db,'clients',id));},
-
-      // ── CATALOGUE ──
       async getCat(){return loadCol('catalogue');},
       async saveCat(c){await setDoc(doc(db,'catalogue',c.id),c);},
       async delCat(id){await deleteDoc(doc(db,'catalogue',id));},
-
-      // ── COLS ──
       async getCols(){
-        const snap = await getDocs(collection(db,'cols'));
-        const cols = snap.docs.map(d=>({id:d.id,...d.data()}));
-        return cols.length ? cols : [{id:'tshirt',label:'T-Shirt'},{id:'track',label:'Track Pant'},{id:'safari',label:'Safari Set'},{id:'shirt',label:'Shirt'},{id:'trouser',label:'Trouser'}];
+        const snap=await getDocs(collection(db,'cols'));
+        const cols=snap.docs.map(d=>({id:d.id,...d.data()}));
+        return cols.length?cols:[{id:'tshirt',label:'T-Shirt'},{id:'track',label:'Track Pant'},{id:'safari',label:'Safari Set'},{id:'shirt',label:'Shirt'},{id:'trouser',label:'Trouser'}];
       },
       async addCol(c){await setDoc(doc(db,'cols',c.id),c);},
       async delCol(id){await deleteDoc(doc(db,'cols',id));},
-
-      // ── SEQ (doc reference numbers) ──
       async nref(t){
-        const seqRef = doc(db,'meta','seq');
-        const snap = await getDocs(collection(db,'meta'));
-        let seq = {};
+        const seqRef=doc(db,'meta','seq');
+        const snap=await getDocs(collection(db,'meta'));
+        let seq={};
         snap.docs.forEach(d=>{if(d.id==='seq')seq=d.data();});
         seq[t]=(seq[t]||0)+1;
         await setDoc(seqRef,seq);
-        const y=new Date().getFullYear(), n=String(seq[t]).padStart(2,'0');
+        const y=new Date().getFullYear(),n=String(seq[t]).padStart(2,'0');
         return t==='Q'?`Q ${y}-${n}`:t==='I'?`INV ${y}-${n}`:`DN ${y}-${n}`;
       },
-
-      // ── LOGO ──
       getLogo(){return localStorage.getItem('fu4_logo')||'';},
       saveLogo(b64){localStorage.setItem('fu4_logo',b64);},
-
-      // ── LEGACY get() for collectForm ──
-      async get(){
-        const docs = await this.getDocs();
-        return {docs};
-      }
+      get(){return{docs:window._cache.docs};}
     };
 
-    // Patch all async DB calls throughout the app
-    // We wrap the key functions so the app doesn't need to change
-
-    // Override DB.getDocs (used synchronously in several places — we make it sync by caching)
-    // We'll load data once on login and keep a local cache, refreshed on each nav
-    window._cache = {docs:[],clients:[],catalogue:[],cols:[]};
+    window._cache={docs:[],clients:[],catalogue:[],cols:[]};
 
     async function refreshCache(){
-      const [docs,clients,catalogue,cols] = await Promise.all([
-        FSdb.getDocs(), FSdb.getClients(), FSdb.getCat(), FSdb.getCols()
+      const [docs,clients,catalogue,cols]=await Promise.all([
+        FSdb.getDocs(),FSdb.getClients(),FSdb.getCat(),FSdb.getCols()
       ]);
-      window._cache = {docs,clients,catalogue,cols};
+      window._cache={docs,clients,catalogue,cols};
     }
 
-    // Override DB with cache-backed sync version
-    window.DB = {
-      getDocs(type){
-        let d = window._cache.docs;
-        if(type) d=d.filter(x=>x.type===type);
-        return d.sort((a,b)=>new Date(b.date)-new Date(a.date));
-      },
+    window.DB={
+      getDocs(type){let d=window._cache.docs;if(type)d=d.filter(x=>x.type===type);return d.sort((a,b)=>new Date(b.date)-new Date(a.date));},
       getClients(){return window._cache.clients||[];},
       getCat(){return window._cache.catalogue&&window._cache.catalogue.length?window._cache.catalogue:[{id:'cat1',name:'T-Shirt',price:550},{id:'cat2',name:'Track Pant',price:600},{id:'cat3',name:'Chef Coat',price:700},{id:'cat4',name:'Trouser',price:650},{id:'cat5',name:'Shirt',price:550},{id:'cat6',name:'Safari Set',price:1500}];},
       getCols(){return window._cache.cols&&window._cache.cols.length?window._cache.cols:[{id:'tshirt',label:'T-Shirt'},{id:'track',label:'Track Pant'},{id:'safari',label:'Safari Set'},{id:'shirt',label:'Shirt'},{id:'trouser',label:'Trouser'}];},
-      get(){return {docs:window._cache.docs};},
+      get(){return{docs:window._cache.docs};},
       getLogo(){return localStorage.getItem('fu4_logo')||'';},
       saveLogo(b64){localStorage.setItem('fu4_logo',b64);},
-
-      // Async write methods (fire and refresh)
       async nref(t){return FSdb.nref(t);},
       addDoc(d){FSdb.addDoc(d).then(refreshCache);},
       updDoc(id,up){FSdb.updDoc(id,up).then(refreshCache);},
@@ -1580,11 +1575,9 @@ const savedLogo=DB.getLogo();if(savedLogo)applyLogo(savedLogo);
       delCol(id){FSdb.delCol(id).then(refreshCache);},
     };
 
-    // Override nref to be async-safe for doc creation
-    window._origOpenNewDoc = window.openNewDoc;
     window.openNewDoc = async function(type){
       grpCtr=0;rowCtr=0;termCtr=0;editingDoc=null;
-      const ref = await DB.nref(type==='quote'?'Q':type==='invoice'?'I':'D');
+      const ref=await DB.nref(type==='quote'?'Q':type==='invoice'?'I':'D');
       const label=type==='quote'?'Quotation':type==='invoice'?'Invoice':'Delivery Note';
       document.getElementById('topbar-title').textContent='New '+label;
       document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -1593,77 +1586,13 @@ const savedLogo=DB.getLogo();if(savedLogo)applyLogo(savedLogo);
       ['Freight charges extra','Kindly issue 50% advance and remaining amount at delivery time.','All Fabrics and stitching are guaranteed for manufacturing damages only.'].forEach(t=>addTerm(t));
     };
 
-    // Real-time listener — refresh UI whenever Firestore data changes
-    onSnapshot(collection(db,'docs'), async ()=>{
+    onSnapshot(collection(db,'docs'),async()=>{
       await refreshCache();
-      if(curPage==='dashboard'||curPage==='quotes'||curPage==='invoices'||curPage==='delivery') renderPage(curPage);
+      if(curPage==='dashboard'||curPage==='quotes'||curPage==='invoices'||curPage==='delivery')renderPage(curPage);
     });
 
-    // Initial load
     await refreshCache();
     nav('dashboard');
-  }
-
-  // ── AUTH ──
-  onAuthStateChanged(auth, (user) => {
-    if (user && ALLOWED.includes(user.email)) {
-      showApp(user);
-    } else if (user) {
-      signOut(auth);
-      showError();
-    }
-  });
-
-  window.signInWithGoogle = async function() {
-    document.getElementById('login-err').style.display = 'none';
-    document.getElementById('login-loading').style.display = 'block';
-    try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      if (ALLOWED.includes(user.email)) {
-        showApp(user);
-      } else {
-        await signOut(auth);
-        showError();
-      }
-    } catch (e) {
-      document.getElementById('login-loading').style.display = 'none';
-      document.getElementById('login-err').style.display = 'block';
-      document.getElementById('login-err').textContent = '⛔ Sign-in failed. Please try again.';
-    }
-  };
-
-  window.signOutUser = async function() {
-    await signOut(auth);
-    document.getElementById('app-wrapper').style.display = 'none';
-    document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('login-err').style.display = 'none';
-    document.getElementById('login-loading').style.display = 'none';
-  };
-
-  function showApp(user) {
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app-wrapper').style.display = 'flex';
-    const actions = document.querySelector('.topbar-actions');
-    if (actions && !document.getElementById('user-info')) {
-      const info = document.createElement('div');
-      info.id = 'user-info';
-      info.style.cssText = 'display:flex;align-items:center;gap:8px;';
-      info.innerHTML = `
-        <img src="${user.photoURL||''}" style="width:28px;height:28px;border-radius:50%;border:2px solid var(--gold);" onerror="this.style.display='none'">
-        <span style="font-size:.78rem;color:var(--gray);font-weight:600;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${user.displayName||user.email}</span>
-        <button class="btn btn-outline btn-sm" onclick="signOutUser()" title="Sign out">↩ Sign Out</button>
-      `;
-      actions.appendChild(info);
-    }
-    // Init Firestore after login
-    initFirestoreDB();
-  }
-
-  function showError() {
-    document.getElementById('login-loading').style.display = 'none';
-    document.getElementById('login-err').style.display = 'block';
-    document.getElementById('login-err').textContent = '⛔ Access denied. Your Google account is not on the authorized list.';
   }
 </script>
 
